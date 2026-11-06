@@ -5,13 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>FIGYJ Sponsored Content Preview</title>
 <link rel="stylesheet" href="/assets/sponsored-content.css">
-<style>
-body{max-width:920px;margin:32px auto;padding:0 18px;color:#17191d;font:16px/1.5 system-ui,sans-serif}
-header{border-bottom:1px solid #e2e5e9;padding-bottom:14px;margin-bottom:24px}
-.demo-section{margin:28px 0;padding:18px;border:1px dashed #c7cdd5;border-radius:12px}
-.demo-section h2{font-size:1rem;margin:0 0 8px}
-.note{color:#66707c;font-size:.88rem}
-</style>
+<link rel="stylesheet" href="/assets/sponsored-preview.css">
 </head>
 <body>
 <header><strong>FIGYJ</strong><p class="note">Sponsored content module · layout preview only</p></header>
@@ -22,23 +16,6 @@ header{border-bottom:1px solid #e2e5e9;padding-bottom:14px;margin-bottom:24px}
 <section class="demo-section"><h2>Homepage placement</h2><div id="figyj-homepage"></div></section>
 <p class="note">This preview uses placeholder copy and no destination URL. CTAs remain disabled. It does not open an advertising link or generate ad events.</p>
 </main>
-<script type="module">
-import { createSponsoredContent } from "/assets/sponsored-content.js";
-const module = createSponsoredContent({
-  placements: {
-    "article-body": { enabled: true },
-    "after-article": { enabled: true, title: "A resource for curious readers" },
-    "related-articles": { enabled: true },
-    "homepage": { enabled: true, description: "A sponsored resource presented separately from editorial recommendations." }
-  }
-});
-for (const placement of module.placements) {
-  module.render(placement, document.getElementById("figyj-" + placement));
-}
-document.addEventListener("figyj:sponsored-click", (event) => {
-  // Demo listener only. No analytics request is sent.
-  console.info("Genuine CTA interaction in preview:", event.detail);
-});
-</script>
+<script type="module" src="/assets/sponsored-preview.js"></script>
 </body>
 </html>

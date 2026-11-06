@@ -1,0 +1,5 @@
+body{max-width:920px;margin:32px auto;padding:0 18px;color:#17191d;font:16px/1.5 system-ui,sans-serif}
+header{border-bottom:1px solid #e2e5e9;padding-bottom:14px;margin-bottom:24px}
+.demo-section{margin:28px 0;padding:18px;border:1px dashed #c7cdd5;border-radius:12px}
+.demo-section h2{font-size:1rem;margin:0 0 8px}
+.note{color:#66707c;font-size:.88rem}

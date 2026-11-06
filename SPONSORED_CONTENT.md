@@ -12,7 +12,7 @@ FIGYJ has exactly one sponsored-content placement and one shared configuration o
 A rotating SmartLink can serve different advertiser offers over time or across visitors. A review of one landing page must never be represented as approval of all SmartLink offers. The browser module therefore makes no universal advertiser-verification claim.
 
 ## Admin and preview
-- Preview: `/assets/sponsored-preview.html`
+- Preview: `/assets/sponsored-preview.html` — read-only live view of the saved placement and verification records.
 - Settings: `/assets/sponsored-admin.html`
 - Browser module: `/assets/sponsored-content.js`
 - Styles: `/assets/sponsored-content.css`
@@ -23,6 +23,9 @@ Settings are stored in `public.figyj_sponsored_config` as singleton row `id = 1`
 ## API
 - `GET /api/sponsored-config`: returns one public `placement` object.
 - `PUT /api/sponsored-config`: validates and saves that single placement.
+
+## Read-only live preview
+The preview fetches the saved placement from `GET /api/sponsored-config` with caching disabled. It displays the saved creative, enabled state, SmartLink URL, provider-link confirmation, and any destination-specific advertiser review record. The saved CTA label is rendered as a disabled button, never as an anchor. The preview does not submit configuration changes, open the SmartLink, follow redirects, or emit impression/click analytics events. A manual refresh performs another read-only GET.
 
 ## Safety
 - CTA is a reader-initiated HTTPS link with `rel="sponsored noopener noreferrer"`.

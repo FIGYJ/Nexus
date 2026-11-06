@@ -261,7 +261,7 @@ app.post("/api/test-browserless", async (req, res) => {
     const timedOut = Date.now() - startedAt >= MAX_TEST_MS - 250 ||
       error?.message?.includes("15 seconds");
     const safeMessage = String(error?.message || "Unknown error")
-      .replace(/wss?:\\/\\/[^\\s]+/gi, "[browser endpoint redacted]")
+      .replaceAll(token, "[credential redacted]")
       .slice(0, 220);
     return res.json({
       status: timedOut ? "timeout" : "failed",

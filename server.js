@@ -77,7 +77,7 @@ function isMonetagSmartLink(value) {
       url.hostname === "uplcm.com" &&
       !url.username && !url.password &&
       !url.search && !url.hash &&
-      /^\\/4\\/\\d+\\/?$/.test(url.pathname);
+      (() => { const parts = url.pathname.split("/").filter(Boolean); return parts.length === 2 && parts[0] === "4" && /^[0-9]+$/.test(parts[1]); })();
   } catch {
     return false;
   }

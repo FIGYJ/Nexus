@@ -223,7 +223,7 @@ app.get("/api/smartlink-config", (req, res) => {
 
   try {
     const parsed = new URL(configuredUrl);
-    const match = parsed.pathname.match(/^\\/4\\/(\\d+)\\/?$/);
+    const match = parsed.pathname.match(/^\/4\/(\d+)\/?$/);
     const valid = parsed.protocol === "https:" &&
       parsed.hostname === "uplcm.com" &&
       !parsed.username && !parsed.password &&
@@ -270,6 +270,7 @@ app.post("/api/test-browserless", async (req, res) => {
   }
 
   let browser;
+  const token = process.env.BROWSERLESS_TOKEN || "";
   let stage = "connect_browserless";
   const startedAt = Date.now();
   let timeoutId;

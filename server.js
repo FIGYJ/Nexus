@@ -3,6 +3,8 @@ import cors from "cors";
 import helmet from "helmet";
 import { rateLimit } from "express-rate-limit";
 import { timingSafeEqual } from "node:crypto";
+import { readFile, writeFile, mkdir, rename } from "node:fs/promises";
+import { dirname } from "node:path";
 import { chromium } from "playwright-core";
 
 const app = express();
@@ -11,6 +13,9 @@ const TEST_URL = process.env.RENDER_EXTERNAL_URL
   ? new URL("/test-redirect", process.env.RENDER_EXTERNAL_URL).toString()
   : "https://example.com";
 const MAX_TEST_MS = 15_000;
+const SPONSORED_CONFIG_PATH = process.env.FIGYJ_SPONSORED_CONFIG_PATH || "/var/data/sponsored-content.json";
+const SPONSORED_PLACEMENTS = ["article-body", "after-article", "related-articles", "homepage"];
+const SPONSORED_DEFAULTS = Object.fromEntries(SPONSORED_PLACEMENTS.map((id) => [id, { enabled:false, title:"Discover something worth exploring", description:"Explore an external resource selected for FIGYJ readers.", ctaLabel:"Visit sponsored destination", destinationUrl:"", destinationVerified:false, disclosure:"Sponsored content" }]));
 
 const allowedOrigins = (process.env.FIGYJ_ORIGINS ||
   "https://www.figyj.blog,https://figyj.blog,https://figyj.blogspot.com")
@@ -33,19 +38,59 @@ app.use(cors({
     }
     return callback(null, false);
   },
-  methods: ["GET", "POST", "OPTIONS"],
+  methods: ["GET", "POST", "PUT", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
   optionsSuccessStatus: 204
 }));
-app.use(express.json({ limit: "1kb" }));
+app.use(express.json({ limit: "16kb" }));
 app.use("/assets", express.static("public", { fallthrough: false }));
 
 app.use("/api/", rateLimit({
   windowMs: 60_000,
-  limit: 8,
+  limit: 20,
   standardHeaders: "draft-7",
   legacyHeaders: false
 }));
+
+function normalizeSponsoredConfig(input) {
+  const placements = {};
+  for (const id of SPONSORED_PLACEMENTS) {
+    const raw = input?.placements?.[id] || {}, base = SPONSORED_DEFAULTS[id];
+    const text = (key, max) => typeof raw[key] === "string" ? raw[key].trim().slice(0, max) : base[key];
+    const candidate = text("destinationUrl", 2048);
+    let destinationUrl = "";
+    if (candidate) { try { const u = new URL(candidate); if (u.protocol === "https:" && u.hostname) destinationUrl = u.toString(); } catch {} }
+    placements[id] = {
+      enabled: raw.enabled === true,
+      title: text("title",120) || base.title,
+      description: text("description",500) || base.description,
+      ctaLabel: text("ctaLabel",70) || base.ctaLabel,
+      destinationUrl,
+      destinationVerified: raw.destinationVerified === true && Boolean(destinationUrl),
+      disclosure: text("disclosure",50) || base.disclosure
+    };
+  }
+  return { placements };
+}
+async function readSponsoredConfig() {
+  try { return normalizeSponsoredConfig(JSON.parse(await readFile(SPONSORED_CONFIG_PATH,"utf8"))); }
+  catch (error) { if (error.code === "ENOENT") return { placements: structuredClone(SPONSORED_DEFAULTS) }; throw error; }
+}
+app.get("/api/sponsored-config", async (_req,res) => {
+  try { res.set("Cache-Control","no-store").json(await readSponsoredConfig()); }
+  catch { res.status(500).json({error:"Could not read sponsored placement settings."}); }
+});
+app.put("/api/sponsored-config", async (req,res) => {
+  if (!isAuthorized(req)) return res.status(401).json({error:"Unauthorized."});
+  try {
+    const config=normalizeSponsoredConfig(req.body);
+    await mkdir(dirname(SPONSORED_CONFIG_PATH),{recursive:true});
+    const tempPath=SPONSORED_CONFIG_PATH+".tmp";
+    await writeFile(tempPath,JSON.stringify(config,null,2),{encoding:"utf8",mode:0o600});
+    await rename(tempPath,SPONSORED_CONFIG_PATH);
+    res.set("Cache-Control","no-store").json(config);
+  } catch { res.status(500).json({error:"Could not save settings. Check the configured persistent storage path."}); }
+});
 
 function isAuthorized(req) {
   const expected = process.env.VERIFY_ADMIN_TOKEN || "";
@@ -60,7 +105,7 @@ app.get("/healthz", (_req, res) => {
   res.json({
     status: "ok",
     service: "FIGYJ Destination Verification",
-    mode: "browserless-test-and-smartlink-configuration"
+    mode: "browserless-test-smartlink-configuration-and-sponsored-content"
   });
 });
 

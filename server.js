@@ -11,7 +11,18 @@ const TEST_URL = process.env.RENDER_EXTERNAL_URL
   ? new URL("/test-redirect", process.env.RENDER_EXTERNAL_URL).toString()
   : "https://example.com";
 const MAX_TEST_MS = 15_000;
-const SPONSORED_DEFAULT = { enabled:false, title:"Discover something worth exploring", description:"Explore an external resource selected for FIGYJ readers.", ctaLabel:"Visit sponsored destination", destinationUrl:"", destinationVerified:false, disclosure:"Sponsored content" };
+const SPONSORED_DEFAULT = {
+  enabled: false,
+  title: "Discover something worth exploring",
+  description: "Explore an external resource selected for FIGYJ readers.",
+  ctaLabel: "Visit sponsored destination",
+  destinationUrl: "",
+  providerLinkConfirmed: false,
+  advertiserReviewStatus: "not-reviewed",
+  reviewedDestinationUrl: "",
+  advertiserReviewNotes: "",
+  disclosure: "Sponsored content"
+};
 
 const allowedOrigins = (process.env.FIGYJ_ORIGINS ||
   "https://www.figyj.blog,https://figyj.blog,https://figyj.blogspot.com")
@@ -48,20 +59,59 @@ app.use("/api/", rateLimit({
   legacyHeaders: false
 }));
 
+function normalizeHttpsUrl(value) {
+  if (typeof value !== "string" || !value.trim()) return "";
+  try {
+    const url = new URL(value.trim());
+    if (url.protocol !== "https:" || !url.hostname || url.username || url.password) return "";
+    return url.toString();
+  } catch {
+    return "";
+  }
+}
+
+function isMonetagSmartLink(value) {
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" &&
+      url.hostname === "uplcm.com" &&
+      !url.username && !url.password &&
+      !url.search && !url.hash &&
+      /^\\/4\\/\\d+\\/?$/.test(url.pathname);
+  } catch {
+    return false;
+  }
+}
+
 function normalizeSponsoredConfig(input) {
   const raw = input?.placement || input || {}, base = SPONSORED_DEFAULT;
   const text = (key, max) => typeof raw[key] === "string" ? raw[key].trim().slice(0, max) : base[key];
-  const candidate = text("destinationUrl", 2048);
-  let destinationUrl = "";
-  if (candidate) { try { const u = new URL(candidate); if (u.protocol === "https:" && u.hostname) destinationUrl = u.toString(); } catch {} }
+  const destinationUrl = normalizeHttpsUrl(text("destinationUrl", 2048));
+  const providerLinkConfirmed = raw.providerLinkConfirmed === true && isMonetagSmartLink(destinationUrl);
+  const requestedReviewStatus = ["not-reviewed", "reviewed-no-concern", "concern-found"].includes(raw.advertiserReviewStatus)
+    ? raw.advertiserReviewStatus
+    : "not-reviewed";
+  const reviewedDestinationUrl = normalizeHttpsUrl(text("reviewedDestinationUrl", 2048));
+  const advertiserReviewNotes = text("advertiserReviewNotes", 1000);
+  const reviewIsSpecific = Boolean(
+    reviewedDestinationUrl &&
+    reviewedDestinationUrl !== destinationUrl &&
+    advertiserReviewNotes
+  );
+  const advertiserReviewStatus = requestedReviewStatus !== "not-reviewed" && reviewIsSpecific
+    ? requestedReviewStatus
+    : "not-reviewed";
   return { placement: {
     enabled: raw.enabled === true,
-    title: text("title",120) || base.title,
-    description: text("description",500) || base.description,
-    ctaLabel: text("ctaLabel",70) || base.ctaLabel,
+    title: text("title", 120) || base.title,
+    description: text("description", 500) || base.description,
+    ctaLabel: text("ctaLabel", 70) || base.ctaLabel,
     destinationUrl,
-    destinationVerified: raw.destinationVerified === true && Boolean(destinationUrl),
-    disclosure: text("disclosure",50) || base.disclosure
+    providerLinkConfirmed,
+    advertiserReviewStatus,
+    reviewedDestinationUrl: advertiserReviewStatus === "not-reviewed" ? "" : reviewedDestinationUrl,
+    advertiserReviewNotes: advertiserReviewStatus === "not-reviewed" ? "" : advertiserReviewNotes,
+    disclosure: text("disclosure", 50) || base.disclosure
   } };
 }
 function supabaseHeaders(extra = {}) {

@@ -3,8 +3,6 @@ import cors from "cors";
 import helmet from "helmet";
 import { rateLimit } from "express-rate-limit";
 import { timingSafeEqual } from "node:crypto";
-import { readFile, writeFile, mkdir, rename } from "node:fs/promises";
-import { dirname } from "node:path";
 import { chromium } from "playwright-core";
 
 const app = express();

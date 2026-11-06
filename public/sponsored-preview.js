@@ -1,17 +1,18 @@
 import { createSponsoredContent } from "/assets/sponsored-content.js";
 
 const sponsored = createSponsoredContent({
-  placements: {
-    "article-body": { enabled: true },
-    "after-article": { enabled: true, title: "A resource for curious readers" },
-    "related-articles": { enabled: true },
-    "homepage": { enabled: true, description: "A sponsored resource presented separately from editorial recommendations." }
+  placement: {
+    enabled: true,
+    title: "Discover something worth exploring",
+    description: "Explore an external resource selected for FIGYJ readers. Destination details have not yet been verified.",
+    ctaLabel: "Visit sponsored destination",
+    destinationUrl: "",
+    destinationVerified: false,
+    disclosure: "Sponsored content"
   }
 });
 
-for (const placement of sponsored.placements) {
-  sponsored.render(placement, document.getElementById("figyj-" + placement));
-}
+sponsored.render(document.getElementById("figyj-sponsored-placement"));
 
 document.addEventListener("figyj:sponsored-click", (event) => {
   // Demo listener only. No analytics request is sent.

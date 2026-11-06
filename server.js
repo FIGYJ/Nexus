@@ -18,11 +18,22 @@ app.disable("x-powered-by");
 app.use(helmet());
 app.use(cors({
   origin(origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
-    return callback(new Error("Origin not allowed"));
+    const renderHost = process.env.RENDER_EXTERNAL_HOSTNAME || "";
+    const renderOrigin = renderHost ? "https://" + renderHost : "";
+    const renderExternalUrl = process.env.RENDER_EXTERNAL_URL || "";
+    if (
+      !origin ||
+      allowedOrigins.includes(origin) ||
+      (renderOrigin && origin === renderOrigin) ||
+      (renderExternalUrl && origin === renderExternalUrl)
+    ) {
+      return callback(null, true);
+    }
+    return callback(null, false);
   },
   methods: ["GET", "POST", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"]
+  allowedHeaders: ["Content-Type", "Authorization"],
+  optionsSuccessStatus: 204
 }));
 app.use(express.json({ limit: "1kb" }));
 
@@ -98,11 +109,18 @@ document.getElementById("test-form").addEventListener("submit", async function(e
       },
       body: "{}"
     });
-    const data = await response.json();
-    result.textContent = JSON.stringify(data, null, 2);
+    const raw = await response.text();
+    let data;
+    try {
+      data = JSON.parse(raw);
+    } catch {
+      data = { status: "http_error", httpStatus: response.status, response: raw.slice(0, 300) };
+    }
+    result.textContent = "HTTP " + response.status + "\\n" + JSON.stringify(data, null, 2);
     tokenInput.value = "";
   } catch (error) {
-    result.textContent = "The request could not be completed. Check the service and try again.";
+    result.textContent = "Request failed: " + (error && error.message ? error.message : "network error") +
+      "\\nReload this page and check the Render deployment status.";
     tokenInput.value = "";
   }
 });
@@ -129,7 +147,7 @@ app.post("/api/test-browserless", async (req, res) => {
   let timeoutId;
 
   try {
-    const endpoint = new URL("wss://production-sfo.browserless.io/");
+    const endpoint = new URL("wss://production-sfo.browserless.io");
     endpoint.searchParams.set("token", token);
 
     const browserPromise = (async () => {

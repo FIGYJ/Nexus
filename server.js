@@ -59,7 +59,7 @@ app.get("/healthz", (_req, res) => {
   res.json({
     status: "ok",
     service: "FIGYJ Destination Verification",
-    mode: "browserless-connection-test-only"
+    mode: "browserless-test-and-smartlink-configuration"
   });
 });
 
@@ -94,6 +94,15 @@ small{color:#596579}
 <button type="submit">Run harmless Browserless test</button>
 </form>
 <p><small>Your token is sent only to this FIGYJ service over HTTPS. It is not saved by this page. Do not share it.</small></p>
+<hr>
+<h2>Monetag SmartLink configuration</h2>
+<p>This checks only the saved URL format and zone ID. It does not open the link, follow redirects, or create advertising activity.</p>
+<form id="smartlink-form">
+<label for="smartlink-token">VERIFY_ADMIN_TOKEN</label>
+<input id="smartlink-token" type="password" autocomplete="off" required>
+<button type="submit">Check saved SmartLink configuration</button>
+</form>
+<pre id="smartlink-result" aria-live="polite">Not checked yet.</pre>
 <pre id="result" aria-live="polite">Ready when you are.</pre>
 <script>
 document.getElementById("test-form").addEventListener("submit", async function(event) {
@@ -123,6 +132,28 @@ document.getElementById("test-form").addEventListener("submit", async function(e
   } catch (error) {
     result.textContent = "Request failed: " + (error && error.message ? error.message : "network error") +
       "\\nReload this page and check the Render deployment status.";
+    tokenInput.value = "";
+  }
+});
+document.getElementById("smartlink-form").addEventListener("submit", async function(event) {
+  event.preventDefault();
+  const tokenInput = document.getElementById("smartlink-token");
+  const result = document.getElementById("smartlink-result");
+  const token = tokenInput.value;
+  result.textContent = "Checking saved URL configuration without opening the SmartLink…";
+  try {
+    const response = await fetch("/api/smartlink-config", {
+      method: "GET",
+      headers: { "Authorization": "Bearer " + token }
+    });
+    const raw = await response.text();
+    let data;
+    try { data = JSON.parse(raw); }
+    catch { data = { status: "http_error", httpStatus: response.status }; }
+    result.textContent = "HTTP " + response.status + "\\n" + JSON.stringify(data, null, 2);
+  } catch (error) {
+    result.textContent = "Request failed: " + (error && error.message ? error.message : "network error");
+  } finally {
     tokenInput.value = "";
   }
 });
@@ -173,6 +204,56 @@ app.get("/test-js-redirect", (_req, res) => {
   </script>
 </body>
 </html>`);
+});
+
+app.get("/api/smartlink-config", (req, res) => {
+  if (!isAuthorized(req)) {
+    return res.status(401).json({ status: "unauthorized" });
+  }
+
+  const configuredUrl = process.env.MONETAG_SMARTLINK_URL || "";
+  if (!configuredUrl) {
+    return res.status(200).json({
+      status: "not_configured",
+      requiredEnvironmentVariable: "MONETAG_SMARTLINK_URL",
+      inspection: "disabled",
+      note: "Add the SmartLink URL in Render environment settings. This endpoint does not open it."
+    });
+  }
+
+  try {
+    const parsed = new URL(configuredUrl);
+    const match = parsed.pathname.match(/^\\/4\\/(\\d+)\\/?$/);
+    const valid = parsed.protocol === "https:" &&
+      parsed.hostname === "uplcm.com" &&
+      !parsed.username && !parsed.password &&
+      !parsed.search && !parsed.hash && Boolean(match);
+
+    if (!valid) {
+      return res.status(200).json({
+        status: "invalid_configuration",
+        inspection: "disabled",
+        note: "Expected an HTTPS Monetag SmartLink in the form https://uplcm.com/4/ZONE_ID with no query string."
+      });
+    }
+
+    return res.json({
+      status: "configured_not_inspected",
+      provider: "Monetag",
+      linkType: "Direct Link (SmartLink)",
+      host: parsed.hostname,
+      zoneId: match[1],
+      inspection: "disabled",
+      advertisingEventsGenerated: false,
+      note: "Only the saved URL structure was checked. No network request was sent to the SmartLink."
+    });
+  } catch {
+    return res.status(200).json({
+      status: "invalid_configuration",
+      inspection: "disabled",
+      note: "MONETAG_SMARTLINK_URL is not a valid URL."
+    });
+  }
 });
 
 app.post("/api/test-browserless", async (req, res) => {

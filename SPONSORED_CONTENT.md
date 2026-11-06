@@ -6,11 +6,13 @@
 - Browser module: `/assets/sponsored-content.js`
 - Styles: `/assets/sponsored-content.css`
 
-## Independent placement controls
-The admin page manages `article-body`, `after-article`, `related-articles`, and `homepage` separately. Each placement has its own enabled state, headline, description, CTA label, disclosure, HTTPS destination URL, and destination-verification flag. Saving uses the existing `VERIFY_ADMIN_TOKEN` in an Authorization header; the token is not embedded in Blogger or stored by the page.
+## One placement only
+FIGYJ has exactly one sponsored-content placement and one shared configuration object. The admin page exposes one enable/disable control and one set of headline, description, CTA label, disclosure, HTTPS destination URL, and destination-verification settings. There are no separate article, after-article, related-content, or homepage placement controls.
+
+Saving uses the existing `VERIFY_ADMIN_TOKEN` in an Authorization header; the token is not embedded in Blogger or stored by the page.
 
 ## Persistence requirement (Supabase)
-Sponsored placement settings are stored in the Supabase table `public.figyj_sponsored_config`; they no longer depend on a Render persistent disk. The service reads and writes the single configuration row with `id = 1` through the Supabase REST API.
+Sponsored-content settings are stored in the Supabase table `public.figyj_sponsored_config`; they do not depend on a Render persistent disk. The service reads and writes the single configuration row with `id = 1` through the Supabase REST API.
 
 1. Create a Supabase project and run the SQL in `supabase/sponsored-content.sql` in the Supabase SQL Editor.
 2. In the Render service environment, set `SUPABASE_URL` to the project URL and `SUPABASE_SERVICE_ROLE_KEY` to the project's service-role secret.
@@ -19,8 +21,8 @@ Sponsored placement settings are stored in the Supabase table `public.figyj_spon
 The service returns HTTP 503 for sponsored-config requests when these environment variables are missing. Keep the table protected by Row Level Security and do not add public/anon policies. The server's service-role credential is used only by the backend.
 
 ## API
-- `GET /api/sponsored-config`: public placement configuration, no secrets.
-- `PUT /api/sponsored-config`: requires `Authorization: Bearer VERIFY_ADMIN_TOKEN`; validates and saves settings.
+- `GET /api/sponsored-config`: returns the single public `placement` object, with no secrets.
+- `PUT /api/sponsored-config`: requires `Authorization: Bearer VERIFY_ADMIN_TOKEN`; validates and saves the single placement.
 
 ## Safety
 - CTAs are reader-initiated HTTPS links with `rel="sponsored noopener noreferrer"`.
@@ -30,4 +32,4 @@ The service returns HTTP 503 for sponsored-config requests when these environmen
 - The click event hook is not persistent analytics. Keep sponsored clicks separate from pageviews, internal navigation, Mondiad reporting, and simulated lab data.
 
 ## Blogger integration
-Blogger integration is a later step. Load the CSS/module from Nexus and render only placements enabled in public configuration. Never expose the admin token in Blogger.
+Blogger integration is a later step. Load the CSS/module from Nexus and render the one enabled sponsored-content placement. Never expose the admin token in Blogger.

@@ -38,6 +38,7 @@ app.use(cors({
   optionsSuccessStatus: 204
 }));
 app.use(express.json({ limit: "1kb" }));
+app.use("/assets", express.static("public", { fallthrough: false }));
 
 app.use("/api/", rateLimit({
   windowMs: 60_000,

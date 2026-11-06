@@ -3,13 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "A secure, provider-neutral destination metadata verification service for FIGYJ.",
-  "engines": {
-    "node": ">=20"
-  },
-  "scripts": {
-    "start": "node server.js"
-  },
+  "engines": { "node": ">=20" },
+  "scripts": { "start": "node server.js" },
   "dependencies": {
     "cors": "^2.8.5",
     "express": "^4.21.2",

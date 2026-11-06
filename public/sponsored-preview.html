@@ -3,16 +3,47 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>FIGYJ Sponsored Content Preview</title>
-<link rel="stylesheet" href="/assets/sponsored-content.css">
+<title>FIGYJ Live Sponsored Content Preview</title>
 <link rel="stylesheet" href="/assets/sponsored-preview.css">
 </head>
 <body>
-<header><strong>FIGYJ</strong><p class="note">Sponsored content module · single-placement preview</p></header>
+<header>
+  <strong>FIGYJ</strong>
+  <p class="eyebrow">SPONSORED CONTENT · READ-ONLY PREVIEW</p>
+  <h1>Live placement preview</h1>
+  <p class="intro">This page reads the saved single-placement configuration from FIGYJ. It does not edit settings or activate advertising links.</p>
+</header>
 <main>
-<section class="demo-section"><h2>Sponsored content placement</h2><div id="figyj-sponsored-placement"></div></section>
-<p class="note">This preview uses sample copy and no destination URL. The CTA remains disabled. It does not open an advertising link or generate ad events.</p>
-<p><a href="/assets/sponsored-admin.html">Open sponsored-content settings</a></p>
+  <div class="preview-banner" role="note">
+    <strong>Safe preview mode:</strong> the saved destination is displayed as plain text. The CTA is disabled. No advertising link is opened and no ad impressions, clicks, or other ad events are generated.
+  </div>
+  <section class="demo-section" aria-labelledby="creative-heading">
+    <div class="section-heading">
+      <div>
+        <p class="eyebrow">READER-FACING CREATIVE</p>
+        <h2 id="creative-heading">Saved placement</h2>
+      </div>
+      <span id="placement-state" class="status-pill">Loading…</span>
+    </div>
+    <div id="figyj-sponsored-placement" aria-live="polite">
+      <p class="loading">Loading the saved placement…</p>
+    </div>
+  </section>
+  <section class="verification-section" aria-labelledby="verification-heading">
+    <div class="section-heading">
+      <div>
+        <p class="eyebrow">EDITORIAL RECORD</p>
+        <h2 id="verification-heading">Verification status</h2>
+      </div>
+      <button id="refresh-preview" type="button">Refresh saved settings</button>
+    </div>
+    <dl id="verification-details" class="verification-grid">
+      <div><dt>Provider-link confirmation</dt><dd>Loading…</dd></div>
+      <div><dt>Advertiser landing-page review</dt><dd>Loading…</dd></div>
+    </dl>
+    <p id="loaded-at" class="loaded-at"></p>
+  </section>
+  <p class="footer-links"><a href="/assets/sponsored-admin.html">Open sponsored-content settings</a></p>
 </main>
 <script type="module" src="/assets/sponsored-preview.js"></script>
 </body>

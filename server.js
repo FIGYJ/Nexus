@@ -8,7 +8,7 @@ import { chromium } from "playwright-core";
 const app = express();
 const PORT = Number(process.env.PORT || 10000);
 const TEST_URL = process.env.RENDER_EXTERNAL_URL
-  ? new URL("/test-landing", process.env.RENDER_EXTERNAL_URL).toString()
+  ? new URL("/test-redirect", process.env.RENDER_EXTERNAL_URL).toString()
   : "https://example.com";
 const MAX_TEST_MS = 15_000;
 
@@ -87,7 +87,7 @@ small{color:#596579}
 </head>
 <body>
 <h1>FIGYJ Browserless connection test</h1>
-<p>This test visits a harmless FIGYJ test page with a known title and description. It does not open or inspect advertising links.</p>
+<p>This test follows a controlled redirect chain on the FIGYJ service and ends at a harmless page with known metadata. It does not open or inspect advertising links.</p>
 <form id="test-form">
 <label for="admin-token">VERIFY_ADMIN_TOKEN</label>
 <input id="admin-token" type="password" autocomplete="off" required>
@@ -101,7 +101,7 @@ document.getElementById("test-form").addEventListener("submit", async function(e
   const tokenInput = document.getElementById("admin-token");
   const result = document.getElementById("result");
   const token = tokenInput.value;
-  result.textContent = "Testing Browserless with the FIGYJ metadata test page…";
+  result.textContent = "Testing controlled HTTP and JavaScript redirects on FIGYJ…";
   try {
     const response = await fetch("/api/test-browserless", {
       method: "POST",
@@ -149,6 +149,27 @@ app.get("/test-landing", (_req, res) => {
 </html>`);
 });
 
+// Harmless redirect-chain fixtures hosted by this service.
+// These routes never touch an advertising network.
+app.get("/test-redirect", (_req, res) => {
+  res.redirect(302, "/test-js-redirect");
+});
+
+app.get("/test-js-redirect", (_req, res) => {
+  res.type("html").send(`<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Redirect fixture</title></head>
+<body>
+  <p>Following a controlled same-site JavaScript redirect…</p>
+  <script>
+    setTimeout(() => {
+      window.location.replace("/test-landing");
+    }, 250);
+  </script>
+</body>
+</html>`);
+});
+
 app.post("/api/test-browserless", async (req, res) => {
   if (!isAuthorized(req)) {
     return res.status(401).json({ status: "unauthorized" });
@@ -176,10 +197,24 @@ app.post("/api/test-browserless", async (req, res) => {
       });
       const context = browser.contexts()[0] || await browser.newContext();
       const page = await context.newPage();
+      const redirectTrail = [];
+      page.on("response", (navigationResponse) => {
+        if (navigationResponse.request().isNavigationRequest()) {
+          redirectTrail.push({
+            url: navigationResponse.url(),
+            status: navigationResponse.status()
+          });
+        }
+      });
 
       const response = await page.goto(TEST_URL, {
         waitUntil: "domcontentloaded",
         timeout: 7_000
+      });
+
+      // The fixture includes a brief JavaScript redirect after the HTTP 302.
+      await page.waitForURL((url) => url.pathname === "/test-landing", {
+        timeout: 5_000
       });
 
       const metadata = await page.evaluate(() => ({
@@ -197,9 +232,10 @@ app.post("/api/test-browserless", async (req, res) => {
         testUrl: TEST_URL,
         finalUrl: page.url(),
         httpStatus: response?.status() ?? null,
+        redirectTrail,
         ...metadata,
         elapsedMs: Date.now() - startedAt,
-        note: "Harmless metadata test only. No advertising link was opened."
+        note: "Harmless same-site redirect test only. No advertising link was opened."
       };
     })();
 

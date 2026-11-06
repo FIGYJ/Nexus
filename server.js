@@ -50,6 +50,67 @@ app.get("/healthz", (_req, res) => {
   });
 });
 
+app.get("/admin-test", (_req, res) => {
+  // A same-origin utility page: the secret is entered by the account owner,
+  // sent over HTTPS in an Authorization header, and never stored by this page.
+  res.setHeader(
+    "Content-Security-Policy",
+    "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+  );
+  res.type("html").send(`<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FIGYJ Browserless Test</title>
+<style>
+body{font:16px system-ui,sans-serif;max-width:650px;margin:40px auto;padding:0 18px;color:#172033}
+label{display:block;font-weight:650;margin:18px 0 6px}
+input{width:100%;box-sizing:border-box;padding:12px;border:1px solid #aab4c2;border-radius:7px;font:inherit}
+button{margin-top:16px;padding:12px 18px;border:0;border-radius:7px;background:#174ea6;color:white;font-weight:700;font:inherit;cursor:pointer}
+pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f3f5f8;padding:14px;border-radius:8px}
+small{color:#596579}
+</style>
+</head>
+<body>
+<h1>FIGYJ Browserless connection test</h1>
+<p>This test visits <strong>https://example.com</strong> only. It does not open or inspect advertising links.</p>
+<form id="test-form">
+<label for="admin-token">VERIFY_ADMIN_TOKEN</label>
+<input id="admin-token" type="password" autocomplete="off" required>
+<button type="submit">Run harmless Browserless test</button>
+</form>
+<p><small>Your token is sent only to this FIGYJ service over HTTPS. It is not saved by this page. Do not share it.</small></p>
+<pre id="result" aria-live="polite">Ready when you are.</pre>
+<script>
+document.getElementById("test-form").addEventListener("submit", async function(event) {
+  event.preventDefault();
+  const tokenInput = document.getElementById("admin-token");
+  const result = document.getElementById("result");
+  const token = tokenInput.value;
+  result.textContent = "Testing Browserless with example.com…";
+  try {
+    const response = await fetch("/api/test-browserless", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer " + token
+      },
+      body: "{}"
+    });
+    const data = await response.json();
+    result.textContent = JSON.stringify(data, null, 2);
+    tokenInput.value = "";
+  } catch (error) {
+    result.textContent = "The request could not be completed. Check the service and try again.";
+    tokenInput.value = "";
+  }
+});
+</script>
+</body>
+</html>`);
+});
+
 app.post("/api/test-browserless", async (req, res) => {
   if (!isAuthorized(req)) {
     return res.status(401).json({ status: "unauthorized" });

@@ -156,6 +156,11 @@ app.get("/test-redirect", (_req, res) => {
 });
 
 app.get("/test-js-redirect", (_req, res) => {
+  // Permit the inline JavaScript only on this harmless test fixture.
+  res.setHeader(
+    "Content-Security-Policy",
+    "default-src 'none'; script-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+  );
   res.type("html").send(`<!doctype html>
 <html lang="en">
 <head><meta charset="utf-8"><title>Redirect fixture</title></head>
@@ -184,6 +189,7 @@ app.post("/api/test-browserless", async (req, res) => {
   }
 
   let browser;
+  let stage = "connect_browserless";
   const startedAt = Date.now();
   let timeoutId;
 
@@ -195,6 +201,7 @@ app.post("/api/test-browserless", async (req, res) => {
       browser = await chromium.connectOverCDP(endpoint.toString(), {
         timeout: 8_000
       });
+      stage = "create_browser_page";
       const context = browser.contexts()[0] || await browser.newContext();
       const page = await context.newPage();
       const redirectTrail = [];
@@ -207,16 +214,19 @@ app.post("/api/test-browserless", async (req, res) => {
         }
       });
 
+      stage = "follow_http_redirect";
       const response = await page.goto(TEST_URL, {
         waitUntil: "domcontentloaded",
         timeout: 7_000
       });
 
       // The fixture includes a brief JavaScript redirect after the HTTP 302.
+      stage = "follow_javascript_redirect";
       await page.waitForURL((url) => url.pathname === "/test-landing", {
         timeout: 5_000
       });
 
+      stage = "extract_metadata";
       const metadata = await page.evaluate(() => ({
         title: document.title?.trim() || null,
         description:
@@ -250,11 +260,16 @@ app.post("/api/test-browserless", async (req, res) => {
   } catch (error) {
     const timedOut = Date.now() - startedAt >= MAX_TEST_MS - 250 ||
       error?.message?.includes("15 seconds");
+    const safeMessage = String(error?.message || "Unknown error")
+      .replace(/wss?:\\/\\/[^\\s]+/gi, "[browser endpoint redacted]")
+      .slice(0, 220);
     return res.json({
       status: timedOut ? "timeout" : "failed",
+      stage,
       reason: timedOut
         ? "The 15-second test window expired."
-        : "Browserless could not complete the harmless test. Check server logs and credentials.",
+        : "The harmless redirect test failed at the reported stage.",
+      diagnostic: safeMessage,
       elapsedMs: Date.now() - startedAt
     });
   } finally {

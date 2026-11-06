@@ -4,10 +4,13 @@ const sponsored = createSponsoredContent({
   placement: {
     enabled: true,
     title: "Discover something worth exploring",
-    description: "Explore an external resource selected for FIGYJ readers. Destination details have not yet been verified.",
+    description: "Explore an external resource selected for FIGYJ readers. Destination details may vary by SmartLink offer.",
     ctaLabel: "Visit sponsored destination",
     destinationUrl: "",
-    destinationVerified: false,
+    providerLinkConfirmed: false,
+    advertiserReviewStatus: "not-reviewed",
+    reviewedDestinationUrl: "",
+    advertiserReviewNotes: "",
     disclosure: "Sponsored content"
   }
 });

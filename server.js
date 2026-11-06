@@ -261,7 +261,7 @@ app.post("/api/test-browserless", async (req, res) => {
     return res.status(401).json({ status: "unauthorized" });
   }
 
-  const token = process.env.BROWSERLESS_TOKEN;
+  const token = process.env.BROWSERLESS_TOKEN || "";
   if (!token) {
     return res.status(503).json({
       status: "not_configured",
@@ -270,7 +270,6 @@ app.post("/api/test-browserless", async (req, res) => {
   }
 
   let browser;
-  const token = process.env.BROWSERLESS_TOKEN || "";
   let stage = "connect_browserless";
   const startedAt = Date.now();
   let timeoutId;

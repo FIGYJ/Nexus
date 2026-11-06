@@ -86,7 +86,8 @@ function ensureSupabaseConfigured() {
   }
 }
 function supabaseRestUrl(query = "") {
-  const base = (process.env.SUPABASE_URL || "").replace(/\\/$/, "");
+  const rawBase = process.env.SUPABASE_URL || "";
+  const base = rawBase.endsWith("/") ? rawBase.slice(0, -1) : rawBase;
   return base + "/rest/v1/figyj_sponsored_config" + query;
 }
 async function readSponsoredConfig() {

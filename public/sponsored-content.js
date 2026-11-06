@@ -1,12 +1,15 @@
 /* FIGYJ Sponsored Content Module
- * Four independent placement configurations.
+ * Exactly one configurable sponsored-content placement.
  * No automatic navigation, popups, impressions, or background requests.
  */
-const PLACEMENTS = ["article-body", "after-article", "related-articles", "homepage"];
-const DEFAULT_COPY = {
+const DEFAULT_SETTINGS = {
+  enabled: false,
   title: "Discover something worth exploring",
   description: "Explore an external resource selected for FIGYJ readers. Destination details have not yet been verified.",
-  ctaLabel: "Visit sponsored destination"
+  ctaLabel: "Visit sponsored destination",
+  destinationUrl: "",
+  destinationVerified: false,
+  disclosure: "Sponsored content"
 };
 
 const escapeHTML = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({
@@ -23,41 +26,33 @@ function validDestination(value) {
 }
 
 export function createSponsoredContent(options = {}) {
-  const settings = Object.fromEntries(PLACEMENTS.map((placement) => {
-    const supplied = options.placements?.[placement] || {};
-    return [placement, {
-      enabled: supplied.enabled === true,
-      title: supplied.title || options.title || DEFAULT_COPY.title,
-      description: supplied.description || options.description || DEFAULT_COPY.description,
-      ctaLabel: supplied.ctaLabel || options.ctaLabel || DEFAULT_COPY.ctaLabel,
-      destinationUrl: supplied.destinationUrl || options.destinationUrl || "",
-      destinationVerified: supplied.destinationVerified === true,
-      disclosure: supplied.disclosure || "Sponsored content"
-    }];
-  }));
+  const settings = {
+    ...DEFAULT_SETTINGS,
+    ...(options.placement || {})
+  };
+  settings.enabled = settings.enabled === true;
+  settings.destinationVerified = settings.destinationVerified === true;
 
-  function render(placement, mount) {
-    if (!PLACEMENTS.includes(placement)) throw new Error("Unknown FIGYJ sponsored placement.");
+  function render(mount) {
     if (!(mount instanceof Element)) throw new TypeError("A valid mount element is required.");
-    const config = settings[placement];
     mount.replaceChildren();
-    if (!config.enabled) {
+    if (!settings.enabled) {
       mount.hidden = true;
       return false;
     }
     mount.hidden = false;
-    const hasDestination = validDestination(config.destinationUrl);
-    const title = escapeHTML(config.title);
-    const description = escapeHTML(config.description);
-    const cta = escapeHTML(config.ctaLabel);
-    const disclosure = escapeHTML(config.disclosure);
+    const hasDestination = validDestination(settings.destinationUrl);
+    const title = escapeHTML(settings.title);
+    const description = escapeHTML(settings.description);
+    const cta = escapeHTML(settings.ctaLabel);
+    const disclosure = escapeHTML(settings.disclosure);
     const destinationMarkup = hasDestination
-      ? `<a class="figyj-sponsored-cta" data-figyj-sponsored-cta href="${escapeHTML(config.destinationUrl)}" target="_blank" rel="sponsored noopener noreferrer">${cta}</a>`
+      ? `<a class="figyj-sponsored-cta" data-figyj-sponsored-cta href="${escapeHTML(settings.destinationUrl)}" target="_blank" rel="sponsored noopener noreferrer">${cta}</a>`
       : `<span class="figyj-sponsored-cta" aria-disabled="true">${cta}</span>`;
-    const verification = config.destinationVerified
+    const verification = settings.destinationVerified && hasDestination
       ? "Destination details verified"
       : "Destination details not verified";
-    mount.innerHTML = `<aside class="figyj-sponsored-card" data-placement="${placement}" aria-label="Sponsored content">
+    mount.innerHTML = `<aside class="figyj-sponsored-card" aria-label="Sponsored content">
         <p class="figyj-sponsored-label">${disclosure}</p>
         <h2 class="figyj-sponsored-title">${title}</h2>
         <p class="figyj-sponsored-description">${description}</p>
@@ -69,28 +64,26 @@ export function createSponsoredContent(options = {}) {
       link.addEventListener("click", () => {
         mount.dispatchEvent(new CustomEvent("figyj:sponsored-click", {
           bubbles: true,
-          detail: { placement, destinationHost: new URL(config.destinationUrl).hostname, occurredAt: new Date().toISOString() }
+          detail: { destinationHost: new URL(settings.destinationUrl).hostname, occurredAt: new Date().toISOString() }
         }));
-      }, { once: false });
+      });
     }
     return true;
   }
 
-  function configure(placement, patch = {}) {
-    if (!PLACEMENTS.includes(placement)) throw new Error("Unknown FIGYJ sponsored placement.");
+  function configure(patch = {}) {
     const allowed = ["enabled", "title", "description", "ctaLabel", "destinationUrl", "destinationVerified", "disclosure"];
     for (const key of allowed) {
-      if (Object.hasOwn(patch, key)) settings[placement][key] = patch[key];
+      if (Object.hasOwn(patch, key)) settings[key] = patch[key];
     }
-    return { ...settings[placement] };
+    settings.enabled = settings.enabled === true;
+    settings.destinationVerified = settings.destinationVerified === true;
+    return { ...settings };
   }
 
-  function getSettings(placement) {
-    if (!PLACEMENTS.includes(placement)) throw new Error("Unknown FIGYJ sponsored placement.");
-    return { ...settings[placement] };
+  function getSettings() {
+    return { ...settings };
   }
 
-  return Object.freeze({ render, configure, getSettings, placements: [...PLACEMENTS] });
+  return Object.freeze({ render, configure, getSettings });
 }
-
-export { PLACEMENTS };

@@ -72,24 +72,60 @@ function normalizeSponsoredConfig(input) {
   }
   return { placements };
 }
+function supabaseHeaders(extra = {}) {
+  return {
+    apikey: process.env.SUPABASE_SERVICE_ROLE_KEY || "",
+    Authorization: "Bearer " + (process.env.SUPABASE_SERVICE_ROLE_KEY || ""),
+    "Content-Type": "application/json",
+    ...extra
+  };
+}
+function ensureSupabaseConfigured() {
+  if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    const error = new Error("Supabase storage is not configured.");
+    error.code = "SUPABASE_NOT_CONFIGURED";
+    throw error;
+  }
+}
+function supabaseRestUrl(query = "") {
+  const base = (process.env.SUPABASE_URL || "").replace(/\\/$/, "");
+  return base + "/rest/v1/figyj_sponsored_config" + query;
+}
 async function readSponsoredConfig() {
-  try { return normalizeSponsoredConfig(JSON.parse(await readFile(SPONSORED_CONFIG_PATH,"utf8"))); }
-  catch (error) { if (error.code === "ENOENT") return { placements: structuredClone(SPONSORED_DEFAULTS) }; throw error; }
+  ensureSupabaseConfigured();
+  const response = await fetch(supabaseRestUrl("?id=eq.1&select=config"), {
+    headers: supabaseHeaders(),
+    signal: AbortSignal.timeout(8000)
+  });
+  if (!response.ok) throw new Error("Supabase read failed: HTTP " + response.status);
+  const rows = await response.json();
+  return rows.length ? normalizeSponsoredConfig(rows[0].config) : { placements: structuredClone(SPONSORED_DEFAULTS) };
 }
 app.get("/api/sponsored-config", async (_req,res) => {
   try { res.set("Cache-Control","no-store").json(await readSponsoredConfig()); }
-  catch { res.status(500).json({error:"Could not read sponsored placement settings."}); }
+  catch (error) {
+    const missing = error.code === "SUPABASE_NOT_CONFIGURED";
+    res.status(missing ? 503 : 500).json({error: missing ? "Sponsored settings storage is not configured." : "Could not read sponsored placement settings."});
+  }
 });
 app.put("/api/sponsored-config", async (req,res) => {
   if (!isAuthorized(req)) return res.status(401).json({error:"Unauthorized."});
   try {
-    const config=normalizeSponsoredConfig(req.body);
-    await mkdir(dirname(SPONSORED_CONFIG_PATH),{recursive:true});
-    const tempPath=SPONSORED_CONFIG_PATH+".tmp";
-    await writeFile(tempPath,JSON.stringify(config,null,2),{encoding:"utf8",mode:0o600});
-    await rename(tempPath,SPONSORED_CONFIG_PATH);
+    ensureSupabaseConfigured();
+    const config = normalizeSponsoredConfig(req.body);
+    const response = await fetch(supabaseRestUrl(), {
+      method: "POST",
+      headers: supabaseHeaders({ Prefer: "resolution=merge-duplicates,return=minimal" }),
+      body: JSON.stringify({ id: 1, config, updated_at: new Date().toISOString() }),
+      signal: AbortSignal.timeout(8000)
+    });
+    if (!response.ok) throw new Error("Supabase write failed: HTTP " + response.status);
     res.set("Cache-Control","no-store").json(config);
-  } catch { res.status(500).json({error:"Could not save settings. Check the configured persistent storage path."}); }
+  } catch (error) {
+    const missing = error.code === "SUPABASE_NOT_CONFIGURED";
+    console.error("Sponsored settings storage error:", error.message);
+    res.status(missing ? 503 : 500).json({error: missing ? "Supabase storage is not configured on the service." : "Could not save settings to Supabase. Check the database table and server credentials."});
+  }
 });
 
 function isAuthorized(req) {

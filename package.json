@@ -1,0 +1,20 @@
+{
+  "name": "figyj-destination-verification",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "A secure, provider-neutral destination metadata verification service for FIGYJ.",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "express-rate-limit": "^7.5.0",
+    "helmet": "^8.1.0",
+    "playwright-core": "^1.51.0"
+  }
+}

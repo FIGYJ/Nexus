@@ -11,9 +11,7 @@ const TEST_URL = process.env.RENDER_EXTERNAL_URL
   ? new URL("/test-redirect", process.env.RENDER_EXTERNAL_URL).toString()
   : "https://example.com";
 const MAX_TEST_MS = 15_000;
-const SPONSORED_CONFIG_PATH = process.env.FIGYJ_SPONSORED_CONFIG_PATH || "/var/data/sponsored-content.json";
-const SPONSORED_PLACEMENTS = ["article-body", "after-article", "related-articles", "homepage"];
-const SPONSORED_DEFAULTS = Object.fromEntries(SPONSORED_PLACEMENTS.map((id) => [id, { enabled:false, title:"Discover something worth exploring", description:"Explore an external resource selected for FIGYJ readers.", ctaLabel:"Visit sponsored destination", destinationUrl:"", destinationVerified:false, disclosure:"Sponsored content" }]));
+const SPONSORED_DEFAULT = { enabled:false, title:"Discover something worth exploring", description:"Explore an external resource selected for FIGYJ readers.", ctaLabel:"Visit sponsored destination", destinationUrl:"", destinationVerified:false, disclosure:"Sponsored content" };
 
 const allowedOrigins = (process.env.FIGYJ_ORIGINS ||
   "https://www.figyj.blog,https://figyj.blog,https://figyj.blogspot.com")
@@ -51,24 +49,20 @@ app.use("/api/", rateLimit({
 }));
 
 function normalizeSponsoredConfig(input) {
-  const placements = {};
-  for (const id of SPONSORED_PLACEMENTS) {
-    const raw = input?.placements?.[id] || {}, base = SPONSORED_DEFAULTS[id];
-    const text = (key, max) => typeof raw[key] === "string" ? raw[key].trim().slice(0, max) : base[key];
-    const candidate = text("destinationUrl", 2048);
-    let destinationUrl = "";
-    if (candidate) { try { const u = new URL(candidate); if (u.protocol === "https:" && u.hostname) destinationUrl = u.toString(); } catch {} }
-    placements[id] = {
-      enabled: raw.enabled === true,
-      title: text("title",120) || base.title,
-      description: text("description",500) || base.description,
-      ctaLabel: text("ctaLabel",70) || base.ctaLabel,
-      destinationUrl,
-      destinationVerified: raw.destinationVerified === true && Boolean(destinationUrl),
-      disclosure: text("disclosure",50) || base.disclosure
-    };
-  }
-  return { placements };
+  const raw = input?.placement || input || {}, base = SPONSORED_DEFAULT;
+  const text = (key, max) => typeof raw[key] === "string" ? raw[key].trim().slice(0, max) : base[key];
+  const candidate = text("destinationUrl", 2048);
+  let destinationUrl = "";
+  if (candidate) { try { const u = new URL(candidate); if (u.protocol === "https:" && u.hostname) destinationUrl = u.toString(); } catch {} }
+  return { placement: {
+    enabled: raw.enabled === true,
+    title: text("title",120) || base.title,
+    description: text("description",500) || base.description,
+    ctaLabel: text("ctaLabel",70) || base.ctaLabel,
+    destinationUrl,
+    destinationVerified: raw.destinationVerified === true && Boolean(destinationUrl),
+    disclosure: text("disclosure",50) || base.disclosure
+  } };
 }
 function supabaseHeaders(extra = {}) {
   return {
@@ -98,7 +92,7 @@ async function readSponsoredConfig() {
   });
   if (!response.ok) throw new Error("Supabase read failed: HTTP " + response.status);
   const rows = await response.json();
-  return rows.length ? normalizeSponsoredConfig(rows[0].config) : { placements: structuredClone(SPONSORED_DEFAULTS) };
+  return rows.length ? normalizeSponsoredConfig(rows[0].config) : { placement: structuredClone(SPONSORED_DEFAULT) };
 }
 app.get("/api/sponsored-config", async (_req,res) => {
   try { res.set("Cache-Control","no-store").json(await readSponsoredConfig()); }

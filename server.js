@@ -6,6 +6,9 @@ import { timingSafeEqual } from "node:crypto";
 import { chromium } from "playwright-core";
 
 const app = express();
+// Render terminates HTTPS in front of this service; trust only the immediate proxy hop.
+// This lets rate limiting use the visitor IP from Render's forwarded header without trusting an arbitrary chain.
+app.set("trust proxy", 1);
 const PORT = Number(process.env.PORT || 10000);
 const TEST_URL = process.env.RENDER_EXTERNAL_URL
   ? new URL("/test-redirect", process.env.RENDER_EXTERNAL_URL).toString()

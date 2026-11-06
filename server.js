@@ -7,7 +7,9 @@ import { chromium } from "playwright-core";
 
 const app = express();
 const PORT = Number(process.env.PORT || 10000);
-const TEST_URL = "https://example.com";
+const TEST_URL = process.env.RENDER_EXTERNAL_URL
+  ? new URL("/test-landing", process.env.RENDER_EXTERNAL_URL).toString()
+  : "https://example.com";
 const MAX_TEST_MS = 15_000;
 
 const allowedOrigins = (process.env.FIGYJ_ORIGINS ||
@@ -85,7 +87,7 @@ small{color:#596579}
 </head>
 <body>
 <h1>FIGYJ Browserless connection test</h1>
-<p>This test visits <strong>https://example.com</strong> only. It does not open or inspect advertising links.</p>
+<p>This test visits a harmless FIGYJ test page with a known title and description. It does not open or inspect advertising links.</p>
 <form id="test-form">
 <label for="admin-token">VERIFY_ADMIN_TOKEN</label>
 <input id="admin-token" type="password" autocomplete="off" required>
@@ -99,7 +101,7 @@ document.getElementById("test-form").addEventListener("submit", async function(e
   const tokenInput = document.getElementById("admin-token");
   const result = document.getElementById("result");
   const token = tokenInput.value;
-  result.textContent = "Testing Browserless with example.com…";
+  result.textContent = "Testing Browserless with the FIGYJ metadata test page…";
   try {
     const response = await fetch("/api/test-browserless", {
       method: "POST",
@@ -125,6 +127,24 @@ document.getElementById("test-form").addEventListener("submit", async function(e
   }
 });
 </script>
+</body>
+</html>`);
+});
+
+app.get("/test-landing", (_req, res) => {
+  res.type("html").send(`<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>FIGYJ Metadata Test Page</title>
+  <meta name="description" content="This harmless test page confirms that FIGYJ can retrieve a real page title and meta description through Browserless.">
+  <meta property="og:description" content="Open test page for FIGYJ metadata extraction.">
+</head>
+<body>
+  <main>
+    <h1>Browserless metadata extraction is working</h1>
+    <p>This page is hosted by the FIGYJ verification service for safe testing.</p>
+  </main>
 </body>
 </html>`);
 });
@@ -179,7 +199,7 @@ app.post("/api/test-browserless", async (req, res) => {
         httpStatus: response?.status() ?? null,
         ...metadata,
         elapsedMs: Date.now() - startedAt,
-        note: "Harmless connection test only. No advertising link was opened."
+        note: "Harmless metadata test only. No advertising link was opened."
       };
     })();
 
